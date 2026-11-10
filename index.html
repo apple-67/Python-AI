@@ -1,0 +1,693 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>答題下樓梯</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: a classroom chalkboard in a wooden frame (the game), with a bank of questions pinned beside it. Single dark look on purpose. */
+:root {
+  --board: #24332d;
+  --board-deep: #1b2622;
+  --frame: #7a5638;
+  --frame-dark: #563a24;
+  --chalk: #ecebe2;
+  --chalk-dim: #a3b2a9;
+  --yellow: #f2d76b;
+  --mane: #d98b3a;
+  --ok: #94d9a5;
+  --bad: #f09292;
+  --blue: #93c8ec;
+  --ink-line: rgba(236, 235, 226, .16);
+  --font-chalk: "LXGW WenKai TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-code: "JetBrains Mono", Consolas, Menlo, monospace;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { background: var(--board-deep); color: var(--chalk); }
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 20px; }
+header h1 {
+  font-family: var(--font-chalk);
+  font-weight: 700;
+  font-size: clamp(28px, 6vw, 40px);
+  margin: 0;
+  letter-spacing: .04em;
+  text-wrap: balance;
+}
+header h1 span { color: var(--yellow); }
+header p { margin: 2px 0 0; color: var(--chalk-dim); }
+
+main { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 820px) { main { grid-template-columns: minmax(0, 1fr); } }
+
+.game { display: grid; gap: 12px; justify-items: center; }
+.frame {
+  position: relative;
+  width: min(100%, 480px, calc((100dvh - 210px) * 0.6667));
+  min-width: 260px;
+  max-width: 100%;
+  aspect-ratio: 2 / 3;
+  border: 10px solid var(--frame);
+  border-bottom-width: 16px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px var(--frame-dark), 0 10px 30px rgba(0,0,0,.35);
+  background: var(--board);
+}
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.overlay {
+  position: absolute; inset: 0;
+  display: grid; place-content: center; justify-items: center; gap: 10px;
+  text-align: center; padding: 24px;
+  background: rgba(27, 38, 34, .86);
+}
+.overlay h2 { font-family: var(--font-chalk); font-size: 34px; margin: 0; }
+.overlay p { margin: 0; color: var(--chalk-dim); max-width: 30ch; }
+.overlay .big { font-family: var(--font-chalk); font-size: 22px; color: var(--yellow); font-variant-numeric: tabular-nums; }
+
+button {
+  font-family: var(--font-chalk);
+  font-size: 17px; font-weight: 700;
+  color: var(--board-deep);
+  background: var(--yellow);
+  border: 0; border-radius: 999px;
+  padding: 10px 26px;
+  cursor: pointer;
+}
+button.ghost { background: transparent; color: var(--chalk); box-shadow: inset 0 0 0 2px var(--ink-line); }
+button:hover { filter: brightness(1.08); }
+button:focus-visible, textarea:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+.pad { display: none; gap: 10px; width: min(100%, 480px); }
+.pad button {
+  flex: 1; font-size: 26px; padding: 14px 0; border-radius: 14px;
+  background: var(--board); color: var(--chalk);
+  box-shadow: inset 0 0 0 2px var(--ink-line);
+  user-select: none; -webkit-user-select: none; touch-action: none;
+}
+.pad button.on { background: var(--frame); }
+.keys { color: var(--chalk-dim); font-size: 14px; text-align: center; }
+kbd {
+  font-family: var(--font-body); font-size: 12px;
+  border: 1px solid var(--ink-line); border-bottom-width: 2px;
+  border-radius: 5px; padding: 1px 6px; color: var(--chalk);
+}
+@media (pointer: coarse) { .pad { display: flex; } .keys { display: none; } }
+
+aside { display: grid; gap: 18px; min-width: 0; }
+aside section { display: grid; gap: 8px; min-width: 0; }
+aside h2 {
+  font-family: var(--font-chalk); font-size: 21px; margin: 0;
+  padding-bottom: 4px; border-bottom: 1px dashed var(--ink-line);
+}
+aside ol { margin: 0; padding-left: 1.3em; color: var(--chalk-dim); }
+aside ol li::marker { color: var(--yellow); }
+aside ol b { color: var(--chalk); font-weight: 500; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--chalk-dim); }
+.legend i { display: inline-block; width: 22px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+
+.fmt { font-size: 13px; color: var(--chalk-dim); margin: 0; }
+.fmt code { font-family: var(--font-body); color: var(--yellow); }
+textarea {
+  width: 100%; box-sizing: border-box;
+  min-height: 230px; resize: vertical;
+  font-family: var(--font-body); font-size: 14px; line-height: 1.7;
+  color: var(--chalk); background: var(--board);
+  border: 2px solid var(--ink-line); border-radius: 8px;
+  padding: 10px 12px;
+}
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.row button { font-size: 15px; padding: 8px 18px; }
+#bankMsg { font-size: 13px; color: var(--chalk-dim); min-height: 1.4em; margin: 0; }
+#bankMsg.err { color: var(--bad); }
+#bankMsg.good { color: var(--ok); }
+
+.overlay { overflow: auto; }
+.overlay.has-review { place-content: start center; }
+#review { width: 100%; max-width: 360px; text-align: left; }
+#review h3 { font-family: var(--font-chalk); font-size: 18px; margin: 6px 0; color: var(--chalk); }
+#review ol { margin: 0; padding-left: 1.3em; display: grid; gap: 10px; font-size: 14px; }
+#review pre {
+  font-family: var(--font-code); font-size: 13px; color: var(--yellow);
+  background: rgba(0,0,0,.3); border-radius: 6px; padding: 6px 8px; margin: 4px 0;
+  overflow-x: auto; white-space: pre;
+}
+#review .ans { color: var(--ok); }
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>答題<span>下樓梯</span></h1>
+    <p>Python 程式題版：每題 15 秒，看懂黑板上的程式碼，往下跳到正確答案的格子。答錯或超時扣分，每輪 20 題，答完看成績。</p>
+  </header>
+
+  <main>
+    <div class="game">
+      <div class="frame">
+        <canvas id="cv" width="480" height="720" aria-label="遊戲畫面"></canvas>
+        <div class="overlay" id="overlay">
+          <h2 id="ovTitle">準備上課</h2>
+          <p id="ovText">每輪 20 題，每題 15 秒。按 ← → 對準答案，按 ↓ 往下跳。答錯或超時扣 5 分，不會出局，答完這一輪就結束。</p>
+          <div class="big" id="ovScore" hidden></div>
+          <div id="review" hidden><h3>要複習的題目</h3><ol></ol></div>
+          <button id="startBtn" type="button">開始遊戲</button>
+        </div>
+      </div>
+      <div class="pad" aria-label="觸控按鈕">
+        <button type="button" data-key="left" aria-label="向左">←</button>
+        <button type="button" data-key="down" aria-label="往下跳">↓</button>
+        <button type="button" data-key="right" aria-label="向右">→</button>
+      </div>
+      <div class="keys"><kbd>←</kbd> <kbd>→</kbd> 移動　<kbd>↓</kbd> 往下跳　<kbd>P</kbd> 暫停　<kbd>空白鍵</kbd> 開始</div>
+    </div>
+
+    <aside>
+      <section>
+        <h2>怎麼玩</h2>
+        <ol>
+          <li>上方黑板會顯示<b>下一層的題目、程式碼和 A～D 選項</b>，那一層會亮藍色外框。</li>
+          <li>每題有 <b>15 秒</b>。左右移動對準答案，按 <b>↓</b> 往下跳，落在哪一格就是選哪個答案。</li>
+          <li>答對 <b>+10 分</b>；答錯或超時 <b>−5 分</b>，並顯示正確答案。不會出局，分數最低是 0。</li>
+          <li>每輪出 <b>20 題</b>，答完就結束，會列出答錯和超時的題目讓你複習。題庫的題目用完之前不會重複出現。</li>
+        </ol>
+        <div class="legend">
+          <span><i style="background:var(--blue)"></i>這一題</span>
+          <span><i style="background:var(--ok)"></i>正確答案</span>
+          <span><i style="background:var(--bad)"></i>你選錯的格子</span>
+        </div>
+      </section>
+
+    </aside>
+  </main>
+</div>
+
+<script>
+(() => {
+  // ------------------------------------------------------------ 題庫
+  const SAMPLE = `執行後 x 的值與型別是？ \`x = 5 + 3.0\` | 8.0，型別為 float | 8，型別為 int | '8.0'，型別為 str | 發生 SyntaxError
+輸出是什麼？ \`print(7 // 2)\` | 3 | 3.5 | 4 | 3.0
+輸出是什麼？ \`print(7 % 3)\` | 1 | 2 | 0 | 2.33
+輸出是什麼？ \`print(2 ** 3)\` | 8 | 6 | 9 | 23
+輸出是什麼？ \`print(type(5))\` | <class 'int'> | <class 'float'> | <class 'str'> | 5
+輸出是什麼？ \`print(10 - 4)\` | 6 | 14 | -6 | 104
+輸出是什麼？ \`print(2 + 3 * 4)\` | 14 | 20 | 24 | 9
+輸出是什麼？ \`x = 5\\nx += 2\\nprint(x)\` | 7 | 5 | 52 | 發生 SyntaxError
+輸出是什麼？ \`a = 3\\nb = 4\\nprint(a + b)\` | 7 | 34 | 3 4 | 12
+輸出是什麼？ \`x = 10\\nx = x + 5\\nprint(x)\` | 15 | 10 | 5 | 105
+輸出是什麼？ \`print(int(3.9))\` | 3 | 4 | 3.9 | 3.0
+輸出是什麼？ \`print(type("hi"))\` | <class 'str'> | <class 'int'> | <class 'float'> | hi
+輸出是什麼？ \`name = "Amy"\\nprint(name)\` | Amy | name | "Amy" | 發生 NameError
+下列哪一個是合法的變數名稱？ | _score2 | 2score | my-score | class
+輸出是什麼？ \`print("3" + "4")\` | 34 | 7 | "7" | 發生 TypeError
+輸出是什麼？ \`print("ha" * 3)\` | hahaha | ha3 | ha ha ha | 發生 TypeError
+輸出是什麼？ \`print(len("Python"))\` | 6 | 5 | 7 | 發生 TypeError
+輸出是什麼？ \`s = "hello"\\nprint(s[1:3])\` | el | ell | he | hel
+輸出是什麼？ \`print("Hello"[0])\` | H | Hello | e | 發生 IndexError
+輸出是什麼？ \`print("Hello".upper())\` | HELLO | hello | Hello | 發生 SyntaxError
+輸出是什麼？ \`print("Py".lower())\` | py | PY | Py | 發生 AttributeError
+輸出是什麼？ \`print("cat" + "dog")\` | catdog | cat dog | cat+dog | 發生 TypeError
+輸出是什麼？ \`print("hello".replace("l", "L"))\` | heLLo | HeLLo | helLo | hello
+輸出是什麼？ \`print(len("hello world"))\` | 11 | 10 | 2 | 發生 TypeError
+輸出是什麼？ \`print("a" in "banana")\` | True | False | 1 | 發生 TypeError
+輸出是什麼？ \`print("5" * 3)\` | 555 | 15 | 5 5 5 | 發生 TypeError
+輸出是什麼？ \`name = "Amy"\\nprint("Hi " + name)\` | Hi Amy | Hi name | Hi + Amy | 發生 TypeError
+輸出是什麼？ \`print("banana".count("a"))\` | 3 | 2 | 6 | 1
+輸出是什麼？ \`t = (1, 2, 3)\\nprint(type(t))\` | <class 'tuple'> | <class 'list'> | <class 'int'> | <class 'str'>
+輸出是什麼？ \`t = ("a", "b")\\nprint(t[0])\` | a | b | ("a", "b") | 發生 IndexError
+執行後會發生什麼？ \`t = (1, 2)\\nt[0] = 9\` | 發生 TypeError | t 變成 (9, 2) | t 變成 [9, 2] | 發生 IndexError
+輸出是什麼？ \`t = (10, 20, 30)\\nprint(t[1])\` | 20 | 10 | 30 | 發生 IndexError
+輸出是什麼？ \`t = (5, 6, 7)\\nprint(t[2])\` | 7 | 6 | 5 | 發生 IndexError
+輸出是什麼？ \`print(len((1, 2, 3, 4)))\` | 4 | 3 | 10 | 發生 TypeError
+輸出是什麼？ \`a, b = (1, 2)\\nprint(b)\` | 2 | 1 | (1, 2) | 發生 ValueError
+執行後會發生什麼？ \`t = (1, 2, 3)\\nprint(t[3])\` | 發生 IndexError | 印出 3 | 印出 None | 發生 TypeError
+輸出是什麼？ \`t = (4, 5, 6)\\nprint(t[0] + t[1])\` | 9 | 45 | 5 | 發生 TypeError
+輸出是什麼？ \`print((1, 2) + (3, 4))\` | (1, 2, 3, 4) | (4, 6) | (1, 2), (3, 4) | 發生 TypeError
+輸出是什麼？ \`t = (1, 2, 3)\\nprint(t)\` | (1, 2, 3) | [1, 2, 3] | 1 2 3 | {1, 2, 3}
+輸出是什麼？ \`print(2 in (1, 2, 3))\` | True | False | 2 | 發生 TypeError
+輸出是什麼？ \`t = (3, 1, 2)\\nprint(max(t))\` | 3 | 1 | 2 | (3, 1, 2)
+輸出是什麼？ \`print("A", "B")\` | A B | AB | A, B | ("A", "B")
+輸出是什麼？ \`print("A", "B", sep="-")\` | A-B | A B | A-B- | AB
+輸出是什麼？ \`print("Hello")\\nprint("World")\` | Hello 與 World 分兩行 | HelloWorld 在同一行 | Hello World 在同一行 | 發生 SyntaxError
+輸出是什麼？ \`print("I", "love", "Python")\` | I love Python | IlovePython | I,love,Python | "I love Python"
+輸入 5，輸出是什麼？ \`x = input()\\nprint(x + x)\` | 55 | 10 | 5 5 | 發生 TypeError
+輸入 5，輸出是什麼？ \`x = int(input())\\nprint(x + x)\` | 10 | 55 | 5 | 發生 TypeError
+輸入 5，輸出是什麼？ \`x = input()\\nprint(type(x))\` | <class 'str'> | <class 'int'> | <class 'float'> | <class 'input'>
+輸入 2.5，輸出是什麼？ \`x = float(input())\\nprint(x * 2)\` | 5.0 | 2.52.5 | 5 | 發生 ValueError
+輸入 Tom，輸出是什麼？ \`name = input()\\nprint(name)\` | Tom | name | input | 發生 NameError
+分兩行輸入 3 和 4，輸出？ \`a = int(input())\\nb = int(input())\\nprint(a * b)\` | 12 | 7 | 34 | 發生 ValueError
+分兩行輸入 1 和 2，輸出？ \`a = input()\\nb = input()\\nprint(a + b)\` | 12 | 3 | 1 2 | 發生 TypeError
+輸入 Amy，輸出是什麼？ \`name = input()\\nprint("Hi,", name)\` | Hi, Amy | Hi,Amy | Hi, name | 發生 TypeError
+輸出是什麼？ \`age = 10\\nprint("Age:", age)\` | Age: 10 | Age:10 | Age: age | 發生 TypeError
+輸出是什麼？ \`x = 5\\nif x > 3:\\n    print("big")\` | big | 什麼都不印 | 5 | 發生 SyntaxError
+輸出是什麼？ \`print(5 > 3)\` | True | False | 5 | 發生 TypeError
+輸出是什麼？ \`x = 4\\nprint(x == 4)\` | True | False | 4 | 發生 SyntaxError
+輸出是什麼？ \`print(3 > 2 and 2 > 5)\` | False | True | None | 發生 SyntaxError
+輸出是什麼？ \`print(not True)\` | False | True | None | 發生 SyntaxError
+輸出是什麼？ \`print(5 != 3)\` | True | False | 5 | 發生 SyntaxError
+輸出是什麼？ \`x = 2\\nif x > 5:\\n    print("A")\` | 什麼都不印 | A | 2 | 發生 SyntaxError
+輸出是什麼？ \`print(3 >= 3)\` | True | False | 3 | 發生 SyntaxError
+輸出是什麼？ \`print(2 > 1 or 1 > 2)\` | True | False | None | 發生 SyntaxError
+輸出是什麼？ \`x = 10\\nif x % 2 == 0:\\n    print("even")\` | even | odd | 10 | 什麼都不印
+輸出是什麼？ \`score = 80\\nif score >= 60:\\n    print("pass")\` | pass | fail | 80 | 什麼都不印
+輸出是什麼？ \`x = 5\\nprint(x > 3 and x < 10)\` | True | False | 5 | 發生 SyntaxError
+輸出是什麼？ \`x = 10\\nif x > 5 and x < 8:\\n    print("A")\` | 什麼都不印 | A | 發生 SyntaxError | None
+迴圈結束後 i 的值是？ \`i = 0\\nwhile i < 3:\\n    i += 1\` | 3 | 2 | 4 | 0
+迴圈結束後 n 的值是？ \`n = 3\\nwhile n > 0:\\n    n -= 1\` | 0 | 3 | 1 | -1
+迴圈結束後 n 的值是？ \`n = 0\\nwhile n < 4:\\n    n += 2\` | 4 | 2 | 6 | 0
+迴圈會執行幾次？ \`i = 5\\nwhile i < 3:\\n    i += 1\` | 0 次 | 1 次 | 3 次 | 無限次
+執行後會發生什麼？ \`i = 0\\nwhile i < 3:\\n    print(i)\` | 無限迴圈，一直印 0 | 印出 0 1 2 | 只印出 0 | 發生 SyntaxError
+迴圈結束後 count 的值是？ \`count = 0\\nwhile count < 5:\\n    count += 1\` | 5 | 4 | 6 | 0
+while 迴圈中執行 break 會怎樣？ | 立刻跳出整個迴圈 | 只跳過本次剩下的敘述 | 結束整個程式 | 暫停迴圈一秒
+while 迴圈會在什麼時候停止？ | 條件變成 False 時 | 執行一次後 | 條件變成 True 時 | 印出東西時
+迴圈會執行幾次？ \`i = 1\\nwhile i <= 3:\\n    i += 1\` | 3 次 | 2 次 | 4 次 | 無限次
+下列哪一行 while 的寫法正確？ | while i < 3: | while i < 3 | while i < 3; | whlie i < 3:
+迴圈結束後 i 的值是？ \`i = 10\\nwhile i > 7:\\n    i -= 1\` | 7 | 6 | 8 | 10
+迴圈會執行幾次？ \`i = 0\\nwhile i < 5:\\n    i += 1\` | 5 次 | 4 次 | 6 次 | 無限次
+迴圈會執行幾次？ \`n = 4\\nwhile n > 0:\\n    n -= 2\` | 2 次 | 1 次 | 4 次 | 無限次`;
+
+  function parseBank(text) {
+    const qs = [], errors = [];
+    text.split(/\r?\n/).forEach((line, i) => {
+      if (!line.trim()) return;
+      const parts = line.split("|").map(s => s.trim()).filter(Boolean);
+      if (parts.length < 3) errors.push(`第 ${i + 1} 行至少要有：題目 | 正確答案 | 一個錯誤答案`);
+      else if (parts.length > 5) errors.push(`第 ${i + 1} 行選項太多，最多 4 個選項`);
+      else {
+        const code = [...parts[0].matchAll(/`([^`]*)`/g)].map(m => m[1].replace(/\\n/g, "\n")).join("\n");
+        const q = parts[0].replace(/`[^`]*`/g, " ").replace(/\s+/g, " ").trim();
+        qs.push({ q: q || "這段程式碼的結果是？", code, options: parts.slice(1) });
+      }
+    });
+    return { qs, errors };
+  }
+
+  let QUESTIONS = parseBank(SAMPLE).qs;
+  const ROUND_SIZE = 20;
+
+  // ------------------------------------------------------------ 參數
+  const W = 480, H = 720, TOP = 218, GAP = 170, PLAT = 22, ROW_SCREEN = TOP + 150;
+  const GRAVITY = 1500, MOVE = 270, PW = 26, PH = 34;
+  const TIME_LIMIT = 15, GAIN = 10, PENALTY = 5;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = {
+    board: css("--board"), deep: css("--board-deep"), chalk: css("--chalk"), dim: css("--chalk-dim"),
+    yellow: css("--yellow"), mane: css("--mane"), ok: css("--ok"), bad: css("--bad"), blue: css("--blue"), line: css("--ink-line"),
+  };
+  const CODE = `"JetBrains Mono", Consolas, Menlo, monospace`;
+  const FONT = `"LXGW WenKai TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif`;
+
+  const cv = document.getElementById("cv");
+  const ctx = cv.getContext("2d");
+  const overlay = document.getElementById("overlay");
+  const ovTitle = document.getElementById("ovTitle");
+  const ovText = document.getElementById("ovText");
+  const ovScore = document.getElementById("ovScore");
+  const ovReview = document.getElementById("review");
+  const startBtn = document.getElementById("startBtn");
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  // ------------------------------------------------------------ 出題：洗牌後依序發牌，牌用完才重洗，所以題庫用完之前不會重複
+  const DECK_KEY = "stairs-quiz-deck-v1";
+  const hashStr = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return String(h); };
+  const bankSig = () => hashStr(JSON.stringify(QUESTIONS));
+  let deck = [];            // 還沒出過的題目編號
+  function saveDeck() { try { localStorage.setItem(DECK_KEY, JSON.stringify({ sig: bankSig(), deck })); } catch {} }
+  function loadDeck() {     // 重新整理頁面後接著發牌，題庫改過就重洗
+    try {
+      const d = JSON.parse(localStorage.getItem(DECK_KEY) || "null");
+      if (d && d.sig === bankSig() && Array.isArray(d.deck) && d.deck.every(i => Number.isInteger(i) && i >= 0 && i < QUESTIONS.length)) { deck = d.deck; return; }
+    } catch {}
+    deck = [];
+  }
+  function resetDeck() { deck = []; saveDeck(); }
+  function takeRound(consume) {
+    const n = Math.min(ROUND_SIZE, QUESTIONS.length);
+    let d = deck.slice();
+    if (d.length < n) {     // 牌不夠：先用完剩下的，再把其餘題目洗牌接上
+      const have = new Set(d);
+      d = d.concat(shuffle(QUESTIONS.map((_, i) => i).filter(i => !have.has(i))));
+    }
+    if (consume) { deck = d.slice(n); saveDeck(); }
+    return d.slice(0, n).map(i => QUESTIONS[i]);
+  }
+
+  // ------------------------------------------------------------ 樓梯
+  function makeRow(y, q) {
+    if (!q) return { y, question: null, options: ["起點"], answer: 0, answered: true, state: ["start"] };
+    const correct = q.options[0];
+    const options = shuffle(q.options.slice());
+    return { y, question: q.q, code: q.code, options, answer: options.indexOf(correct), answered: false, state: options.map(() => null) };
+  }
+  const cellW = r => W / r.options.length;
+  const cellAt = (r, cx) => Math.max(0, Math.min(r.options.length - 1, Math.floor(cx / cellW(r))));
+
+  // ------------------------------------------------------------ 遊戲狀態
+  let g, mode = "ready"; // ready | play | pause | over
+  const keys = { left: false, right: false };
+  let dropQueued = false;   // ↓ 每按一次只跳一層，避免按住不放連續作答
+
+  function newGame(consume = false) {   // consume = true 才真的發出這一輪的題目
+    const qs = takeRound(consume);
+    g = { rows: [makeRow(0, null)], score: 0, combo: 0, correct: 0, wrong: 0, timeout: 0, missed: [],
+          total: qs.length, px: W / 2 - PW / 2, py: -PH, vy: 0, onRow: null, dropRow: null,
+          timer: TIME_LIMIT, cam: 0, msg: "", msgT: 0, msgColor: C.chalk, endT: -1 };
+    qs.forEach((q, i) => g.rows.push(makeRow((i + 1) * GAP, q)));
+    g.onRow = g.rows[0];
+    g.cam = g.py + PH - ROW_SCREEN;
+    dropQueued = false;
+  }
+  const flash = (text, color, t = 1.8) => { g.msg = text; g.msgColor = color; g.msgT = t; };
+  const nextRow = () => g.rows[g.rows.indexOf(g.onRow) + 1] || null;
+  const miss = (r, how) => g.missed.push({ q: r.question, code: r.code, answer: r.options[r.answer], how });
+
+  function targetRow() {
+    for (const r of g.rows) if (!r.answered && r.y >= g.py + PH - 1) return r;
+    return null;
+  }
+
+  function drop() { g.dropRow = g.onRow; g.onRow = null; g.vy = 80; }
+
+  function land(r) {
+    const idx = cellAt(r, g.px + PW / 2);
+    if (!r.answered) {
+      r.answered = true;
+      if (idx === r.answer) {
+        r.state = r.options.map((_, i) => i === idx ? "ok" : "dim");
+        g.combo++; g.correct++; g.score += GAIN;
+        flash(`答對了！+${GAIN}` + (g.combo > 1 ? `　連續答對 ${g.combo} 題` : ""), C.ok);
+      } else {
+        r.state = r.options.map((_, i) => i === idx ? "bad" : i === r.answer ? "ok" : "dim");
+        g.combo = 0; g.wrong++; g.score = Math.max(0, g.score - PENALTY);
+        miss(r, "答錯");
+        flash(`答錯 −${PENALTY}　正確答案：${r.options[r.answer]}`, C.bad, 2.6);
+      }
+    }
+    g.onRow = r; g.vy = 0; g.py = r.y - PH; g.timer = TIME_LIMIT;
+    dropQueued = false;
+    if (!nextRow()) g.endT = 1.4;
+  }
+
+  function update(dt) {
+    g.msgT -= dt;
+    const dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    g.px = Math.max(0, Math.min(W - PW, g.px + dx * MOVE * dt));
+    if (dx) g.face = dx;
+
+    if (g.onRow) {
+      g.py = g.onRow.y - PH;
+      const next = nextRow();
+      if (next) {
+        g.timer -= dt;
+        if (g.timer <= 0) {
+          next.answered = true;
+          next.state = next.options.map((_, i) => i === next.answer ? "ok" : "dim");
+          g.combo = 0; g.timeout++; g.score = Math.max(0, g.score - PENALTY);
+          miss(next, "超時");
+          flash(`時間到 −${PENALTY}　正確答案：${next.options[next.answer]}`, C.bad, 2.6);
+          drop();
+        } else if (dropQueued) {
+          dropQueued = false;
+          drop();
+        }
+      } else if (g.endT > 0) {
+        g.endT -= dt;
+        if (g.endT <= 0) { endGame(); return; }
+      }
+    }
+    if (!g.onRow) {
+      g.vy = Math.min(g.vy + GRAVITY * dt, 900);
+      const ny = g.py + g.vy * dt;
+      let landed = false;
+      for (const r of g.rows) {
+        if (r === g.dropRow) continue;
+        if (g.py + PH <= r.y + 1 && ny + PH >= r.y) { land(r); landed = true; break; }
+      }
+      if (!landed) g.py = ny;
+    }
+    if (g.dropRow && g.py > g.dropRow.y) g.dropRow = null;
+
+    const camTarget = g.py + PH - ROW_SCREEN;
+    g.cam += (camTarget - g.cam) * Math.min(1, dt * 7);
+  }
+
+  // ------------------------------------------------------------ 繪圖
+  function wrap(text, maxW) {
+    const lines = []; let cur = "";
+    for (const ch of text) {
+      if (ctx.measureText(cur + ch).width > maxW && cur) { lines.push(cur); cur = ch; } else cur += ch;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function truncate(text, maxW) {
+    if (ctx.measureText(text).width <= maxW) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+    return t + "…";
+  }
+
+  function draw(t) {
+    ctx.fillStyle = C.board; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,0.025)";
+    for (let i = 0; i < 40; i++) {
+      const sy = (((i * 173) - g.cam * 0.4) % H + H) % H;
+      ctx.fillRect((i * 97) % W, sy, 60, 2);
+    }
+
+    const target = mode === "ready" ? null : targetRow();
+
+    for (const r of g.rows) {
+      const y = r.y - g.cam;
+      if (y < TOP - 30 || y > H + 30) continue;
+      const w = cellW(r);
+      r.options.forEach((opt, i) => {
+        const x = i * w + 4, cw = w - 8, st = r.state[i];
+        let fill = "rgba(236,235,226,0.10)", stroke = C.dim;
+        if (st === "ok") { fill = C.ok; stroke = C.ok; }
+        else if (st === "bad") { fill = C.bad; stroke = C.bad; }
+        else if (st === "start") { fill = "rgba(236,235,226,0.22)"; stroke = C.chalk; }
+        else if (st === "dim") { fill = "rgba(236,235,226,0.07)"; stroke = "rgba(163,178,169,0.35)"; }
+        else if (r === target) { fill = "rgba(147,200,236,0.28)"; stroke = C.blue; }
+
+        roundRect(x, y, cw, PLAT, 6);
+        ctx.fillStyle = fill; ctx.fill();
+        ctx.lineWidth = r === target ? 2 + Math.abs(((t * 2.5) % 2) - 1) * 2 : 2;
+        ctx.strokeStyle = stroke; ctx.stroke();
+        if (st === "bad") {               // 粉筆裂痕
+          ctx.strokeStyle = C.deep; ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x + cw * 0.3, y); ctx.lineTo(x + cw * 0.38, y + 10); ctx.lineTo(x + cw * 0.32, y + PLAT);
+          ctx.moveTo(x + cw * 0.66, y); ctx.lineTo(x + cw * 0.6, y + 12); ctx.lineTo(x + cw * 0.7, y + PLAT);
+          ctx.stroke();
+        }
+
+        let label = opt;
+        if (r.question != null) {
+          ctx.font = `700 15px ${FONT}`;
+          label = `${"ABCD"[i]}. ${opt}`;
+          if (ctx.measureText(label).width > cw - 6) { ctx.font = `700 20px ${FONT}`; label = "ABCD"[i]; }
+        } else ctx.font = `700 17px ${FONT}`;
+        ctx.fillStyle = st === "dim" ? "rgba(236,235,226,0.4)" : st === "ok" ? C.ok : st === "bad" ? C.bad : C.chalk;
+        ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+        ctx.fillText(label, x + cw / 2, y - 5);
+      });
+    }
+
+    // 玩家：粉筆小獅子
+    {
+      const x = g.px, y = g.py - g.cam, f = g.face || 1, cx = x + PW / 2, hy = y + 12;
+      const falling = !g.onRow && mode === "play";
+      // 尾巴（在背對的那一側）
+      ctx.strokeStyle = C.yellow; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(cx - f * 7, y + 30);
+      ctx.quadraticCurveTo(cx - f * 18, y + 30, cx - f * 16, y + (falling ? 14 : 20)); ctx.stroke();
+      ctx.fillStyle = C.mane;
+      ctx.beginPath(); ctx.arc(cx - f * 16, y + (falling ? 13 : 19), 3.2, 0, 7); ctx.fill();
+      // 身體和腳
+      roundRect(x + 5, y + 19, 16, 13, 6); ctx.fillStyle = C.yellow; ctx.fill();
+      ctx.fillRect(x + 6, y + 29, 5, 5); ctx.fillRect(x + 15, y + 29, 5, 5);
+      // 鬃毛
+      ctx.fillStyle = C.mane;
+      for (let k = 0; k < 10; k++) {
+        const a = k / 10 * Math.PI * 2;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 10, hy + Math.sin(a) * 10, 4.6, 0, 7); ctx.fill();
+      }
+      // 耳朵
+      ctx.fillStyle = C.yellow;
+      ctx.beginPath(); ctx.arc(cx - 7, hy - 8, 3.4, 0, 7); ctx.arc(cx + 7, hy - 8, 3.4, 0, 7); ctx.fill();
+      // 臉
+      ctx.beginPath(); ctx.arc(cx, hy, 9.5, 0, 7); ctx.fill();
+      const ex = f * 1.2;
+      ctx.fillStyle = C.deep;
+      ctx.beginPath(); ctx.arc(cx - 3.6 + ex, hy - 1.5, 1.6, 0, 7); ctx.arc(cx + 3.6 + ex, hy - 1.5, 1.6, 0, 7); ctx.fill();
+      ctx.fillStyle = C.mane;
+      ctx.beginPath(); ctx.moveTo(cx - 2 + ex, hy + 1.6); ctx.lineTo(cx + 2 + ex, hy + 1.6); ctx.lineTo(cx + ex, hy + 3.6); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = C.deep; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      if (falling) ctx.arc(cx + ex, hy + 6, 1.8, 0, 7);
+      else { ctx.moveTo(cx - 3 + ex, hy + 4.6); ctx.quadraticCurveTo(cx + ex, hy + 7, cx + 3 + ex, hy + 4.6); }
+      ctx.stroke();
+      ctx.lineCap = "butt";
+    }
+
+    // 上方黑板：分數、題數、倒數
+    ctx.fillStyle = C.deep; ctx.fillRect(0, 0, W, TOP);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, TOP - 1); ctx.lineTo(W, TOP - 1); ctx.stroke();
+    ctx.textBaseline = "top";
+    ctx.font = `700 17px ${FONT}`;
+    ctx.textAlign = "left"; ctx.fillStyle = C.dim; ctx.fillText("分數", 14, 9);
+    ctx.fillStyle = C.yellow; ctx.fillText(String(g.score), 14 + ctx.measureText("分數 ").width, 9);
+    ctx.textAlign = "center"; ctx.fillStyle = C.dim;
+    const n = Math.min(g.correct + g.wrong + g.timeout + 1, g.total);
+    ctx.fillText(`第 ${n} / ${g.total} 題`, W / 2, 9);
+
+    const counting = mode !== "ready" && g.onRow && nextRow();
+    const left = counting ? Math.max(0, g.timer) : TIME_LIMIT;
+    const urgent = counting && left <= 5;
+    ctx.textAlign = "right"; ctx.fillStyle = urgent ? C.bad : C.chalk;
+    ctx.fillText(`${Math.ceil(left)} 秒`, W - 14, 9);
+    roundRect(14, 32, W - 28, 5, 2.5); ctx.fillStyle = C.line; ctx.fill();
+    if (counting) {
+      roundRect(14, 32, Math.max(5, (W - 28) * left / TIME_LIMIT), 5, 2.5);
+      ctx.fillStyle = urgent ? C.bad : C.yellow; ctx.fill();
+    }
+
+    ctx.textAlign = "left";
+    if (target) {
+      let y = 46;
+      ctx.font = `700 18px ${FONT}`;
+      const pl = wrap(target.question, W - 52).slice(0, 2);
+      ctx.fillStyle = C.blue; ctx.fillText("Q", 14, y);
+      ctx.fillStyle = C.chalk;
+      pl.forEach((ln, i) => ctx.fillText(ln, 36, y + i * 22));
+      y += pl.length * 22 + 4;
+      if (target.code) {
+        const lines = target.code.split("\n").slice(0, 3);
+        const h = lines.length * 19 + 10;
+        roundRect(14, y, W - 28, h, 6); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fill();
+        ctx.font = `500 15px ${CODE}`; ctx.fillStyle = C.yellow;
+        lines.forEach((ln, i) => ctx.fillText(truncate(ln, W - 48), 24, y + 6 + i * 19));
+        y += h + 7;
+      }
+      const colW = (W - 28) / 2;
+      target.options.forEach((o, i) => {
+        const cx = 14 + (i % 2) * colW, cy = y + Math.floor(i / 2) * 21;
+        ctx.font = `700 15px ${FONT}`; ctx.fillStyle = C.blue; ctx.fillText("ABCD"[i], cx, cy);
+        ctx.font = `500 15px ${FONT}`; ctx.fillStyle = C.chalk; ctx.fillText(truncate(o, colW - 26), cx + 18, cy);
+      });
+    } else if (mode === "play") {
+      ctx.font = `400 18px ${FONT}`; ctx.fillStyle = C.dim;
+      ctx.fillText("全部答完了！", 14, 52);
+    }
+
+    if (g.msgT > 0 && mode === "play") {
+      ctx.font = `700 19px ${FONT}`;
+      const tw = Math.min(ctx.measureText(g.msg).width, W - 40);
+      const bx = W / 2 - tw / 2 - 14, by = TOP + 22;
+      roundRect(bx, by, tw + 28, 36, 18); ctx.fillStyle = "rgba(27,38,34,0.92)"; ctx.fill();
+      ctx.strokeStyle = g.msgColor; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = g.msgColor; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(g.msg, W / 2, by + 18, W - 40);
+    }
+  }
+
+  // ------------------------------------------------------------ 流程
+  function showOverlay(title, text, score) {
+    ovTitle.textContent = title; ovText.textContent = text;
+    ovScore.hidden = score == null; if (score != null) ovScore.textContent = score;
+    ovReview.hidden = true; overlay.classList.remove("has-review");
+    overlay.hidden = false;
+  }
+  function start() {
+    newGame(true); mode = "play"; overlay.hidden = true;
+    flash("對準答案，按 ↓ 往下跳！", C.chalk, 2.2);
+  }
+  function endGame() {
+    mode = "over";
+    const acc = g.total ? Math.round(g.correct / g.total * 100) : 0;
+    showOverlay("全部答完！", `答對 ${g.correct} 題・答錯 ${g.wrong} 題・超時 ${g.timeout} 題・正確率 ${acc}%`, `分數 ${g.score}`);
+    const ol = ovReview.querySelector("ol");
+    ol.replaceChildren();
+    for (const m of g.missed) {
+      const li = document.createElement("li");
+      const q = document.createElement("div"); q.textContent = m.q;
+      li.append(q);
+      if (m.code) { const pre = document.createElement("pre"); pre.textContent = m.code; li.append(pre); }
+      const a = document.createElement("div"); a.className = "ans";
+      a.textContent = `正確答案：${m.answer}（${m.how}）`;
+      li.append(a);
+      ol.append(li);
+    }
+    if (g.missed.length) { ovReview.hidden = false; overlay.classList.add("has-review"); }
+    startBtn.textContent = "再玩一次";
+  }
+  function togglePause() {
+    if (mode === "play") { mode = "pause"; showOverlay("暫停中", "倒數也暫停了。按 P 或下面的按鈕繼續。", null); startBtn.textContent = "繼續"; }
+    else if (mode === "pause") { mode = "play"; overlay.hidden = true; }
+  }
+  startBtn.addEventListener("click", () => mode === "pause" ? togglePause() : start());
+
+  // 鍵盤
+  const MOVEKEYS = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right" };
+  addEventListener("keydown", e => {
+    if (MOVEKEYS[e.code]) { keys[MOVEKEYS[e.code]] = true; e.preventDefault(); }
+    if (e.code === "ArrowDown" || e.code === "KeyS") { e.preventDefault(); if (!e.repeat && mode === "play") dropQueued = true; }
+    if (e.code === "Space" || e.code === "Enter") {
+      if (document.activeElement && document.activeElement.tagName === "BUTTON") return;
+      e.preventDefault();
+      if (mode === "ready" || mode === "over") start(); else if (mode === "pause") togglePause();
+    }
+    if (e.code === "KeyP" || e.code === "Escape") togglePause();
+  });
+  addEventListener("keyup", e => { if (MOVEKEYS[e.code]) keys[MOVEKEYS[e.code]] = false; });
+  addEventListener("blur", () => { keys.left = keys.right = false; });
+
+  // 觸控按鈕
+  document.querySelectorAll(".pad button").forEach(b => {
+    const k = b.dataset.key;
+    const on = e => {
+      e.preventDefault(); b.classList.add("on");
+      if (k === "down") { if (mode === "play") dropQueued = true; } else keys[k] = true;
+    };
+    const off = () => { if (k !== "down") keys[k] = false; b.classList.remove("on"); };
+    b.addEventListener("pointerdown", on);
+    ["pointerup", "pointercancel", "pointerleave"].forEach(ev => b.addEventListener(ev, off));
+  });
+
+  // 主迴圈
+  loadDeck();
+  newGame();
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30); last = now;
+    if (mode === "play") update(dt);
+    draw(now / 1000);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "play") togglePause(); });
+})();
+</script>
+
+</body></html>
